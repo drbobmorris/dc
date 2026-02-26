@@ -164,7 +164,11 @@ export default function PosterViewer({ posterId }: { posterId: string }) {
       setPageNumber(prev);
     }
   }
-
+  useEffect(() => {
+    // Always snap back to fit whenever slide changes or orientation changes
+    resetTransformRef.current?.();
+    setMobileZoomed(false);
+  }, [pageNumber, isLandscape]);
   // Keep comment panel synced to current slide (mobile + desktop)
   useEffect(() => {
     setCommentTargetPage(pageNumber);
@@ -336,11 +340,13 @@ export default function PosterViewer({ posterId }: { posterId: string }) {
    * Then render <Page width={fitWidth}> and keep Transform scale at 1.
    */
   const chromeY = useMemo(() => {
-    // conservative chrome estimates; fullscreen reduces chrome
-    if (mobileFullScreen) return 56; // overlay toolbar height
-    // top bar (~56) + mobile header row (~44) + spacing
+    // Landscape is always fullscreen now — no top bar / header row chrome.
+    if (isLandscape) return 0;
+  
+    // Portrait behavior unchanged
+    if (mobileFullScreen) return 56; // overlay toolbar height (if you still use it elsewhere)
     return 56 + 48 + 24;
-  }, [mobileFullScreen]);
+  }, [isLandscape, mobileFullScreen]);
 
   const availH = useMemo(() => {
     const h = vv.h || window.innerHeight || 0;
@@ -491,256 +497,202 @@ export default function PosterViewer({ posterId }: { posterId: string }) {
           </div>
         )}
 
-        {/* ************MOBILE ***********(normal + fullscreen) */}
-        <div
-          className={
-            mobileFullScreen && isLandscape
-              ? 'fixed inset-0 z-[999] bg-black'
-              : !mobileFullScreen && isLandscape
-                ? 'block lg:hidden p-0'               // landscape normal: NO padding, NO gaps
-                : 'block lg:hidden px-3 py-4 space-y-3' // portrait normal
-          }
+    {/* ************MOBILE (2-mode: portrait + landscape-fullscreen) ************ */}
+<div className={isLandscape ? 'fixed inset-0 z-[999] bg-black' : 'block lg:hidden px-3 py-4 space-y-3'}>
+  {/* Portrait header row */}
+  {!isLandscape && (
+    <div className="flex items-center justify-between w-full">
+      <div className="text-sm font-medium text-gray-900">
+        Slide {pageNumber} / {numPages || '?'}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => {
+            resetTransformRef.current?.();
+            setMobileZoomed(false);
+          }}
+          className="px-2 py-1.5 rounded border bg-white text-sm text-gray-700"
         >
-          {/* Fullscreen toolbar overlay */}
-          {mobileFullScreen && isLandscape && (
-  <div className="absolute top-0 left-0 right-0 h-14 z-[2000] flex items-center justify-between px-3 bg-black/80 text-white pointer-events-auto">
-    <button
-      type="button"
-      onClick={() => setMobileFullScreen(false)}
-      className="px-3 py-2 rounded bg-white/10"
-    >
-      Done
-    </button>
+          Fit
+        </button>
 
-    <div className="flex items-center gap-2">
-      <button
-        type="button"
-        onClick={() => {
-          resetTransformRef.current?.();
-          setMobileZoomed(false);
-        }}
-        className="px-3 py-2 rounded bg-white/10"
-      >
-        Fit
-      </button>
-
-      <button
-        type="button"
-        onClick={openCommentComposer}
-        className="px-3 py-2 rounded bg-white/10"
-      >
-        Comment
-      </button>
+        <button
+          type="button"
+          onClick={openCommentComposer}
+          className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium"
+        >
+          Comment
+        </button>
+      </div>
     </div>
-            </div>
-          )}
+  )}
 
-          {/* Non-fullscreen header row (portrait only) */}
-          {!mobileFullScreen && !isLandscape && (
-            <div className="sticky top-0 z-40 bg-white border-b">
-              <div className="text-sm font-medium text-gray-900">
-                Slide {pageNumber} / {numPages || '?'}
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetTransformRef.current?.();
-                    setMobileZoomed(false);
-                  }}
-                  className="px-2 py-1.5 rounded border bg-white text-sm text-gray-700"
-                >
-                  Fit
-                </button>
-
-                <button
-                  type="button"
-                  onClick={openCommentComposer}
-                  className="px-3 py-1.5 rounded bg-blue-600 text-white text-sm font-medium"
-                >
-                  Comment
-                </button>
-
-
-              </div>
-            </div>
-          )}
-
-
-          {/* ONE mobile viewer box. Measure THIS box in both normal + fullscreen. */}
-          <div
-  ref={mobileMeasure.ref}
-  className={
-    mobileFullScreen && isLandscape
-      ? 'absolute inset-0 pt-14 px-2 pb-2'
-      : isLandscape
-        ? 'w-full h-[100dvh] overflow-hidden' // normal landscape: fill screen
+  {/* Viewer container */}
+  <div
+    ref={mobileMeasure.ref}
+    className={
+      isLandscape
+        ? 'absolute inset-0 overflow-hidden'
         : 'w-full bg-white rounded-lg border p-2 max-w-full overflow-hidden max-h-[55dvh]'
-  }
-  onTouchStart={onSwipeStart}
-  onTouchEnd={onSwipeEnd}
->
-            {/* Inner white surface in fullscreen (so the pdf isn't on pure black) */}
-            <div className="relative z-0 w-full h-full bg-white overflow-hidden">              {mobilePageWidth <= 0 || fitWidth <= 0 ? (
-              <div className={mobileFullScreen ? 'p-6 text-sm text-gray-900' : 'p-4 text-sm text-gray-700'}>
-                Loading…
-              </div>
-            ) : (
-              <TransformWrapper
-                // Force remount on page/orientation/fitWidth so "Fit" is deterministic
-                key={`${pageNumber}-${isLandscape ? `L-${fitWidth}` : `P-${mobilePageWidth}`}-${mobileFullScreen ? 'F' : 'N'}`}
-                initialScale={1}
-                minScale={1}
-                maxScale={4}
-                wheel={{ disabled: true }}
-                doubleClick={{ mode: 'reset' }}
-                // panning always enabled; at scale=1 it won't meaningfully move.
-                // This avoids the "can't pan after pinch" state machine failures.
-                panning={{ disabled: false, velocityDisabled: true }}
-                onZoomStop={(ref: any) => setMobileZoomed((ref?.state?.scale ?? 1) > 1.02)}
-                onPanningStop={(ref: any) => setMobileZoomed((ref?.state?.scale ?? 1) > 1.02)}
-                onPinchingStop={(ref: any) => setMobileZoomed((ref?.state?.scale ?? 1) > 1.02)}
-              >
-                {({ resetTransform }) => {
-                  resetTransformRef.current = resetTransform;
+    }
+    onTouchStart={onSwipeStart}
+    onTouchEnd={onSwipeEnd}
+  >
+    <div className="relative z-0 w-full h-full bg-white overflow-hidden">
+      {mobilePageWidth <= 0 || fitWidth <= 0 ? (
+        <div className="p-4 text-sm text-gray-700">Loading…</div>
+      ) : (
+        <TransformWrapper
+          key={`${pageNumber}-${isLandscape ? `L-${fitWidth}` : `P-${mobilePageWidth}`}`}
+          initialScale={1}
+          minScale={1}
+          maxScale={4}
+          wheel={{ disabled: true }}
+          doubleClick={{ mode: 'reset' }}
+          panning={{ disabled: false, velocityDisabled: true }}
+          onZoomStop={(ref: any) => setMobileZoomed((ref?.state?.scale ?? 1) > 1.02)}
+          onPanningStop={(ref: any) => setMobileZoomed((ref?.state?.scale ?? 1) > 1.02)}
+          onPinchingStop={(ref: any) => setMobileZoomed((ref?.state?.scale ?? 1) > 1.02)}
+        >
+          {({ resetTransform }) => {
+            resetTransformRef.current = resetTransform;
 
-                  return (
-                    <TransformComponent
-                      wrapperStyle={{ width: '100%', height: '100%' }}
-                      contentStyle={{ width: '100%', height: '100%' }}
-                    >
-                      <div
-                        ref={zoomSurfaceRef}
-                        style={{ touchAction: 'none' }}
-                        className="w-full h-full flex items-center justify-center"
-                      >
-                        <Page
-                          key={`${pageNumber}`}
-                          pageNumber={pageNumber}
-                          // Phase 1: landscape uses fitWidth so height fits availH
-                          width={isLandscape ? fitWidth : mobilePageWidth}
-                          renderTextLayer={false}
-                          renderAnnotationLayer={false}
-                          onLoadSuccess={(page: any) => {
-                            try {
-                              const vp = page.getViewport({ scale: 1 });
-                              setPageBase({ w: vp.width, h: vp.height });
-                            } catch {
-                              // ignore
-                            }
-                          }}
-                        />
-                      </div>
-                    </TransformComponent>
-                  );
-                }}
-              </TransformWrapper>
-            )}
-            </div>
-          </div>
-          {/* Landscape side controls (non-fullscreen) */}
-          {!mobileFullScreen && isLandscape && (
-            <div className="fixed right-3 top-1/2 -translate-y-1/2 z-50 pointer-events-none">
-              <div className="flex flex-col gap-2 pointer-events-auto">
-                <div className="px-3 py-2 rounded-lg bg-white/95 border shadow text-sm text-gray-900">
-                  Slide {pageNumber}/{numPages || '?'}
+            return (
+              <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }} contentStyle={{ width: '100%', height: '100%' }}>
+                <div
+                  ref={zoomSurfaceRef}
+                  style={{ touchAction: 'none' }}
+                  className="w-full h-full flex items-center justify-center"
+                >
+                  <Page
+                    key={`${pageNumber}`}
+                    pageNumber={pageNumber}
+                    width={isLandscape ? fitWidth : mobilePageWidth}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                    onLoadSuccess={(page: any) => {
+                      try {
+                        const vp = page.getViewport({ scale: 1 });
+                        setPageBase({ w: vp.width, h: vp.height });
+                      } catch {
+                        // ignore
+                      }
+                    }}
+                  />
                 </div>
+              </TransformComponent>
+            );
+          }}
+        </TransformWrapper>
+      )}
+    </div>
+  </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetTransformRef.current?.();
-                    setMobileZoomed(false);
-                  }}
-                  className="px-3 py-2 rounded-lg bg-white/95 border shadow text-sm text-gray-900"
-                >
-                  Fit
-                </button>
-
-                <button
-                  type="button"
-                  onClick={openCommentComposer}
-                  className="px-3 py-2 rounded-lg bg-blue-600 text-white shadow text-sm font-medium"
-                >
-                  Comment
-                </button>
-                <button
-  type="button"
-  disabled={pageNumber <= 1}
-  onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
-  className="px-3 py-2 rounded-lg bg-white/95 border shadow text-sm text-gray-900 disabled:opacity-40 disabled:shadow-none"
->
-  Prev
-</button>
-
-<button
-  type="button"
-  disabled={numPages === 0 || pageNumber >= numPages}
-  onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
-  className="px-3 py-2 rounded-lg bg-white/95 border shadow text-sm text-gray-900 disabled:opacity-40 disabled:shadow-none"
->
-  Next
-</button>
-
-              </div>
-            </div>
-          )}
-          {/* Comments: hide in fullscreen, and hide in landscape (as before) */}
-          {!mobileFullScreen && !isLandscape && (
-            <div className="bg-white rounded-lg border">
-              <div className="flex items-center justify-between px-3 py-2 border-b">
-                <div className="text-sm font-semibold text-gray-800">
-                  Comments <span className="text-gray-500 font-normal">({pageComments.length})</span>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={openCommentComposer}
-                  className="px-2 py-1.5 rounded bg-blue-600 text-white text-sm"
-                >
-                  Add
-                </button>
-              </div>
-
-              <div className="max-h-[35dvh] overflow-y-auto px-3 py-2">
-                {loadingComments ? (
-                  <div className="text-sm text-gray-600">Loading…</div>
-                ) : pageComments.length === 0 ? (
-                  <div className="text-sm text-gray-600">No comments yet.</div>
-                ) : (
-                  <div className="space-y-2">
-                    {pageComments.map((c) => (
-                      <div key={c._id || c.id} className="rounded border border-gray-200 bg-gray-50 p-2">
-                        <div className="text-xs text-gray-500 flex items-center justify-between">
-                          <span>{c.author || 'Anonymous'}</span>
-                          <span>
-                            {c.timestamp instanceof Date
-                              ? c.timestamp.toLocaleString()
-                              : new Date(c.timestamp as any).toLocaleString()}
-                          </span>
-                        </div>
-                        <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{c.text}</div>
-                        <div className="mt-2 flex justify-end">
-                          <button type="button" className="text-xs text-red-700" onClick={() => handleDeleteComment(c)}>
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Footer hint: hide in fullscreen */}
-          {!mobileFullScreen && (
-            <div className="text-center text-xs text-gray-700">
-              {mobileZoomed ? 'Drag to move • Pinch to zoom • Fit to reset' : 'Swipe to change slides'}
-            </div>
-          )}
+  {/* Landscape right rail */}
+  {isLandscape && (
+    <div className="fixed right-2 top-1/2 -translate-y-1/2 z-[2000] pointer-events-none">
+      <div className="flex flex-col gap-2 pointer-events-auto">
+        <div className="px-3 py-2 rounded-lg bg-white/90 border shadow text-sm text-gray-900">
+          {pageNumber}/{numPages || '?'}
         </div>
+
+        <button
+          type="button"
+          onClick={() => {
+            resetTransformRef.current?.();
+            setMobileZoomed(false);
+          }}
+          className="px-3 py-2 rounded-lg bg-white/90 border shadow text-sm text-gray-900"
+        >
+          Fit
+        </button>
+
+        <button
+          type="button"
+          disabled={pageNumber <= 1}
+          onClick={() => setPageNumber((p) => Math.max(1, p - 1))}
+          className="px-3 py-2 rounded-lg bg-white/90 border shadow text-sm text-gray-900 disabled:opacity-40 disabled:shadow-none"
+        >
+          Prev
+        </button>
+
+        <button
+          type="button"
+          disabled={numPages === 0 || pageNumber >= numPages}
+          onClick={() => setPageNumber((p) => Math.min(numPages, p + 1))}
+          className="px-3 py-2 rounded-lg bg-white/90 border shadow text-sm text-gray-900 disabled:opacity-40 disabled:shadow-none"
+        >
+          Next
+        </button>
+
+        <button
+          type="button"
+          onClick={openCommentComposer}
+          className="px-3 py-2 rounded-lg bg-blue-600 text-white shadow text-sm font-medium"
+        >
+          Comment
+        </button>
+      </div>
+    </div>
+  )}
+
+  {/* Portrait comments */}
+  {!isLandscape && (
+    <div className="bg-white rounded-lg border">
+      <div className="flex items-center justify-between px-3 py-2 border-b">
+        <div className="text-sm font-semibold text-gray-800">
+          Comments <span className="text-gray-500 font-normal">({pageComments.length})</span>
+        </div>
+
+        <button
+          type="button"
+          onClick={openCommentComposer}
+          className="px-2 py-1.5 rounded bg-blue-600 text-white text-sm"
+        >
+          Add
+        </button>
+      </div>
+
+      <div className="max-h-[35dvh] overflow-y-auto px-3 py-2">
+        {loadingComments ? (
+          <div className="text-sm text-gray-600">Loading…</div>
+        ) : pageComments.length === 0 ? (
+          <div className="text-sm text-gray-600">No comments yet.</div>
+        ) : (
+          <div className="space-y-2">
+            {pageComments.map((c) => (
+              <div key={c._id || c.id} className="rounded border border-gray-200 bg-gray-50 p-2">
+                <div className="text-xs text-gray-500 flex items-center justify-between">
+                  <span>{c.author || 'Anonymous'}</span>
+                  <span>
+                    {c.timestamp instanceof Date
+                      ? c.timestamp.toLocaleString()
+                      : new Date(c.timestamp as any).toLocaleString()}
+                  </span>
+                </div>
+                <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{c.text}</div>
+                <div className="mt-2 flex justify-end">
+                  <button type="button" className="text-xs text-red-700" onClick={() => handleDeleteComment(c)}>
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+
+  {/* Portrait footer hint */}
+  {!isLandscape && (
+    <div className="text-center text-xs text-gray-700">
+      {mobileZoomed ? 'Drag to move • Pinch to zoom • Fit to reset' : 'Swipe to change slides'}
+    </div>
+  )}
+</div>
 
         {/* Modal composer */}
         <CommentComposerModal
