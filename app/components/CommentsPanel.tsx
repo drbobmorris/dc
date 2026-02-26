@@ -36,51 +36,48 @@ export default function CommentsPanel({
   onDelete,
 }: CommentsPanelProps) {
   return (
-    <div className="h-full flex flex-col">
-      <div className={compactHeader ? 'px-3 py-2 border-b' : 'px-4 py-3 border-b'}>
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-gray-700 truncate">
-              Comments · Slide {page} / {numPages || '?'}
-            </div>
-          </div>
-
-          <button
-            onClick={onOpenAdd}
-            className="shrink-0 rounded bg-blue-600 text-white text-sm px-3 py-1.5 hover:bg-blue-700"
-          >
-            Comment
-          </button>
+    <div className="h-full min-h-0 flex flex-col">
+      {/* HEADER (never scrolls) */}
+      <div className="shrink-0 border-b bg-white px-3 py-2 flex items-center justify-between">
+        <div className="text-sm font-semibold text-gray-800">
+          Comments <span className="text-gray-500 font-normal">({comments.length})</span>
         </div>
+
+        <button
+          type="button"
+          onClick={onOpenAdd}
+          className="px-2 py-1.5 rounded bg-blue-600 text-white text-sm"
+        >
+          Add
+        </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-4 py-3">
+      {/* SCROLL AREA (the ONLY scrolling region) */}
+      <div
+  className="flex-1 min-h-0 overflow-y-auto px-3 py-2"
+  style={{ scrollbarGutter: 'stable', overflowAnchor: 'none' }}
+>
         {loading ? (
-          <div className="text-sm text-gray-700">Loading comments…</div>
-        ) : comments?.length ? (
-          <div className="space-y-3">
+          <div className="text-sm text-gray-600">Loading…</div>
+        ) : comments.length === 0 ? (
+          <div className="text-sm text-gray-600">No comments yet.</div>
+        ) : (
+          <div className="space-y-2">
             {comments.map((c) => (
-              <div key={getId(c)} className="rounded border p-3">
-                <div className="text-sm text-gray-900 whitespace-pre-wrap">{c.text}</div>
-
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="text-xs text-gray-700">
-                    {c.author || 'Anonymous'} • {c.timestamp?.toLocaleString?.() ?? ''}
-                  </div>
-
-                  <button
-                    onClick={() => onDelete(c)}
-                    className="text-xs px-2 py-1 rounded border border-red-300 text-red-700 hover:bg-red-50"
-                    title="Delete comment"
-                  >
+              <div key={getId(c)} className="rounded border border-gray-200 bg-gray-50 p-2">
+                <div className="text-xs text-gray-500 flex items-center justify-between">
+                  <span>{c.author || 'Anonymous'}</span>
+                  <span>{(c.timestamp instanceof Date ? c.timestamp : new Date(c.timestamp as any)).toLocaleString()}</span>
+                </div>
+                <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{c.text}</div>
+                <div className="mt-2 flex justify-end">
+                  <button type="button" className="text-xs text-red-700" onClick={() => onDelete(c)}>
                     Delete
                   </button>
                 </div>
               </div>
             ))}
           </div>
-        ) : (
-          <div className="text-sm text-gray-700">No comments on this slide yet.</div>
         )}
       </div>
     </div>
