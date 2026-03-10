@@ -128,8 +128,8 @@ export default function PosterViewer({ posterId }: { posterId: string }) {
   const [composerPage, setComposerPage] = useState<number>(1);
   const [editCommentId, setEditCommentId] = useState<string | null>(null);
   const [composerInitialText, setComposerInitialText] = useState<string>('');
-//session User ID
-const [sessionUserId, setSessionUserId] = useState<string | undefined>(undefined);
+  //session User ID
+  const [sessionUserId, setSessionUserId] = useState<string | undefined>(undefined);
   // Responsive
   const [isLandscape, setIsLandscape] = useState(false);
 
@@ -233,34 +233,34 @@ const [sessionUserId, setSessionUserId] = useState<string | undefined>(undefined
       el.removeEventListener('touchmove', blockPageZoom as any);
     };
   }, []);
-//handles starred posters
-useEffect(() => {
-  let cancelled = false;
+  //handles starred posters
+  useEffect(() => {
+    let cancelled = false;
 
-  async function loadStarStatus() {
-    try {
-      const res = await fetch("/api/stars", { cache: "no-store" });
-      if (!res.ok) return;
+    async function loadStarStatus() {
+      try {
+        const res = await fetch("/api/stars", { cache: "no-store" });
+        if (!res.ok) return;
 
-      const stars = await res.json();
-      if (cancelled) return;
+        const stars = await res.json();
+        if (cancelled) return;
 
-      const starred = Array.isArray(stars)
-        ? stars.some((s) => s.posterId === posterId)
-        : false;
+        const starred = Array.isArray(stars)
+          ? stars.some((s) => s.posterId === posterId)
+          : false;
 
-      setIsStarred(starred);
-    } catch (e) {
-      console.error("Failed to load star status:", e);
+        setIsStarred(starred);
+      } catch (e) {
+        console.error("Failed to load star status:", e);
+      }
     }
-  }
 
-  if (posterId) loadStarStatus();
+    if (posterId) loadStarStatus();
 
-  return () => {
-    cancelled = true;
-  };
-}, [posterId]);
+    return () => {
+      cancelled = true;
+    };
+  }, [posterId]);
   // pdf.js worker
   useEffect(() => {
     pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -333,11 +333,11 @@ useEffect(() => {
       setLoadingComments(true);
       const res = await fetch(`/api/comments?posterId=${posterId}`);
       if (!res.ok) return;
-  
+
       const data = await res.json();
-  
+
       setSessionUserId(data?.sessionUserId ? String(data.sessionUserId) : undefined);
-  
+
       setComments(
         ((data?.comments || []) as any[]).map((c: any) => ({
           ...c,
@@ -614,13 +614,13 @@ useEffect(() => {
             </div>
           </div>
         )}
-<button
-  onClick={() => toggleStar(posterId, isStarred)}
-  className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm text-gray-900 hover:bg-gray-50"
-  title={isStarred ? "Remove star" : "Star this presentation"}
->
-  {isStarred ? "★ Starred" : "☆ Star"}
-</button>
+        <button
+          onClick={() => toggleStar(posterId, isStarred)}
+          className="px-3 py-1.5 rounded-md border border-gray-300 bg-white text-sm text-gray-900 hover:bg-gray-50"
+          title={isStarred ? "Remove star" : "Star this presentation"}
+        >
+          {isStarred ? "★ Starred" : "☆ Star"}
+        </button>
         {/* ************MOBILE (2-mode: portrait + landscape-fullscreen) ************ */}
         <div
           className={
@@ -811,21 +811,27 @@ useEffect(() => {
                                   : 'Public'}
                             </span>
                           </div>
+
                           <span>
                             {c.timestamp instanceof Date
                               ? c.timestamp.toLocaleString()
                               : new Date(c.timestamp as any).toLocaleString()}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded border bg-white text-gray-700">
-                            {(c as any).visibilityType ?? 'public'}
-                          </span>
                         </div>
+
                         <div className="mt-1 text-sm text-gray-900 whitespace-pre-wrap">{c.text}</div>
-                        <div className="mt-2 flex justify-end">
-                          <button type="button" className="text-xs text-red-700" onClick={() => handleDeleteComment(c)}>
-                            Delete
-                          </button>
-                        </div>
+
+                        {sessionUserId && String((c as any).userId) === String(sessionUserId) && (
+                          <div className="mt-2 flex justify-end">
+                            <button
+                              type="button"
+                              className="text-xs text-red-700"
+                              onClick={() => handleDeleteComment(c)}
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -909,19 +915,19 @@ useEffect(() => {
                                 active ? 'border-blue-600 ring-1 ring-blue-200' : 'border-gray-200',
                               ].join(' ')}
                             >
-                        {commentCounts[p] > 0 && (
-  <div className="absolute bottom-3 right-3 flex items-center gap-1 text-gray-900 text-xs font-medium">
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-3.5 w-3.5"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-    >
-      <path d="M18 10c0 3.866-3.582 7-8 7a8.84 8.84 0 01-3.716-.78L2 17l1.02-3.06A6.73 6.73 0 012 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" />
-    </svg>
-    {commentCounts[p]}
-  </div>
-)}
+                              {commentCounts[p] > 0 && (
+                                <div className="absolute bottom-3 right-3 flex items-center gap-1 text-gray-900 text-xs font-medium">
+                                  <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    className="h-3.5 w-3.5"
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                  >
+                                    <path d="M18 10c0 3.866-3.582 7-8 7a8.84 8.84 0 01-3.716-.78L2 17l1.02-3.06A6.73 6.73 0 012 10c0-3.866 3.582-7 8-7s8 3.134 8 7z" />
+                                  </svg>
+                                  {commentCounts[p]}
+                                </div>
+                              )}
 
                               <div className="p-2">
                                 <div className="flex justify-center items-center">
